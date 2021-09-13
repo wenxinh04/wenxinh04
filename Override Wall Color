@@ -1,0 +1,122 @@
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+
+namespace ChangeWallColor
+{
+    [Transaction(TransactionMode.Manual)]
+    [Regeneration(RegenerationOption.Manual)]
+
+    public class CmdChangeElementColor : IExternalCommand
+    {
+        public Result Execute(ExternalCommandData commandData, ref string messages, ElementSet elements)
+        {
+
+            UIDocument uidoc = commandData.Application.ActiveUIDocument;
+            Document doc = uidoc.Document;
+            //ElementId id = uidoc.Selection.PickObject(ObjectType.Element, "Select an element").ElementId;
+            //filter all walls
+            //FilteredElementCollector col = new FilteredElementCollector(doc);
+            //col.OfCategory(BuiltInCategory.OST_Walls);
+            FilteredElementCollector a = new FilteredElementCollector(doc).OfClass(typeof(Wall));
+
+            foreach (Wall wall in a)
+            {
+                Parameter par_Rating = wall.WallType.get_Parameter(BuiltInParameter.DOOR_FIRE_RATING);
+                //TaskDialog.Show("Wall type fire rating", par_Rating.AsString());
+                //Parameter par_Rating = wall.WallType.get_Parameter(BuiltInParameter.DOOR_FIRE_RATING);
+                if (par_Rating.AsString() != null)
+                {
+                    if (par_Rating.AsString().Equals("30min"))
+                    {
+                        ElementId id = wall.Id;
+                        Element e = doc.GetElement(id);
+                        OverrideGraphicSettings ogs = new OverrideGraphicSettings();
+                        ogs.SetCutLineColor(new Color(200, 100, 100));
+
+                        using (Transaction t = new Transaction(doc, "Set Element Override"))
+                        {
+                            t.Start();
+                            doc.ActiveView.SetElementOverrides(id, ogs);
+                            t.Commit();
+                        }
+
+                        if (null != e.Category)
+                        {
+                            int im = e.Category.Material.Id.IntegerValue;
+
+                            List<Material> materials = new List<Material>(
+                              new FilteredElementCollector(doc)
+                                .WhereElementIsNotElementType()
+                                .OfClass(typeof(Material))
+                                .ToElements()
+                                .Where<Element>(m
+                                 => m.Id.IntegerValue != im)
+                                .Cast<Material>());
+
+                            Random r = new Random();
+                            int i = r.Next(materials.Count);
+
+                            using (Transaction t = new Transaction(doc))
+                            {
+                                t.Start("Change Element Material");
+                                e.Category.Material = materials[i];
+                                t.Commit();
+                            }
+                        }
+                    }
+                    else if (par_Rating.AsString().Equals("1hr"))
+                    {
+                        ElementId id = wall.Id;
+                        Element e = doc.GetElement(id);
+                        OverrideGraphicSettings ogs = new OverrideGraphicSettings();
+                        ogs.SetCutLineColor(new Color(210, 180, 100));
+                        using (Transaction t = new Transaction(doc, "Set Element Override"))
+                        {
+                            t.Start();
+                            doc.ActiveView.SetElementOverrides(id, ogs);
+                            t.Commit();
+                        }
+                    }
+                    else if (wall.WallType.get_Parameter(BuiltInParameter.DOOR_FIRE_RATING).AsString().Equals("2hr"))
+                    {
+                        ElementId id = wall.Id;
+                        Element e = doc.GetElement(id);
+                        OverrideGraphicSettings ogs = new OverrideGraphicSettings();
+                        ogs.SetCutLineColor(new Color(0, 250, 250));
+                        using (Transaction t = new Transaction(doc, "Set Element Override"))
+                        {
+                            t.Start();
+                            doc.ActiveView.SetElementOverrides(id, ogs);
+                            t.Commit();
+                        }
+                    }
+                    else if (wall.WallType.get_Parameter(BuiltInParameter.DOOR_FIRE_RATING).AsString().Equals(""))
+                    {
+                        ElementId id = wall.Id;
+                        Element e = doc.GetElement(id);
+                        OverrideGraphicSettings ogs = new OverrideGraphicSettings();
+                        ogs.SetCutLineColor(new Color(0, 0, 0));
+                        using (Transaction t = new Transaction(doc, "Set Element Override"))
+                        {
+                            t.Start();
+                            doc.ActiveView.SetElementOverrides(id, ogs);
+                            t.Commit();
+                        }
+                    }
+                    if (wall == null)
+                        return Result.Failed;
+                    //Parameter par_Rating = wallType.get_Parameter(BuiltInParameter.DOOR_FIRE_RATING);
+                    //TaskDialog.Show("Wall type fire rating", par_Rating.AsString());
+                }
+            }
+
+            return Result.Succeeded;
+        }
+    }
+}
